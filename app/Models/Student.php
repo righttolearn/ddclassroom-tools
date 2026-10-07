@@ -28,6 +28,9 @@ class Student extends Model
         HasOneStudentAttendance,
         HasOneStudentResult;
 
+    public const SUPPORT_TYPE_CASH = 'cash';
+    public const SUPPORT_TYPE_CREDIT_CARD = 'credit_card';
+
     public static function boot()
     {
         parent::boot();
@@ -44,5 +47,10 @@ class Student extends Model
     public function studentResults()
     {
         return $this->hasMany(StudentResult::class);
+    }
+
+    public function monthlyAttendanceLogs()
+    {
+        return $this->hasMany(MonthlyAttendanceLog::class);
     }
 }

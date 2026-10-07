@@ -22,8 +22,11 @@ class CreateMultipleAttendanceLogRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'month_id' => ['required', 'exists:users,id'],
+            'month_id' => ['required', 'integer', 'exists:months,id'],
             'year' => ['required', 'exists:years,name'],
+            'sub_grade_id' => ['nullable', 'integer', 'exists:sub_grades,id'],
+            'term' => ['required', 'integer', 'in:1,2'],
+            'location' => ['required', 'in:ddc,dlc,arsa'],
             'file' => ['required', 'mimes:xlsx, csv, xls'],
         ];
     }

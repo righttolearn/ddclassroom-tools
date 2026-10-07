@@ -11,10 +11,12 @@ use App\Models\Subject;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Maatwebsite\Excel\Concerns\ToModel;
+use Maatwebsite\Excel\Concerns\WithBatchInserts;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
 
-class StudentAttendanceLogImport implements ToModel, WithHeadingRow
+class StudentAttendanceLogImport implements ToModel, WithBatchInserts, WithChunkReading, WithHeadingRow
 {
     public function model(array $row)
     {
@@ -23,7 +25,7 @@ class StudentAttendanceLogImport implements ToModel, WithHeadingRow
             $username = $row['username'];
             $email = $row['username'];
             if ($username == 'NULL' || $username == null) {
-                return [];
+                return null;
             }
             // Use cache to pre-load students and subjects
             $student = Cache::remember("student_username_{$username}", 3600, function () use ($username) {
@@ -33,7 +35,7 @@ class StudentAttendanceLogImport implements ToModel, WithHeadingRow
             if (! $student) {
                 AttendanceMissingEmail::updateOrCreate(['email' => $email], ['created_at' => now()]);
 
-                return [];
+                return null;
             }
 
             if (request()->location == 'ddc') {
@@ -47,17 +49,15 @@ class StudentAttendanceLogImport implements ToModel, WithHeadingRow
                 $to = 4;
             }
 
-
             $subject = isset($row['course_name']) ? $row['course_name'] : null;
             $subjectId = Cache::remember('subject_name_'.substr($subject, $from, $to), 3600, function () use ($subject, $from, $to) {
                 return Subject::where('en_name', 'like', substr($subject, $from, $to).'%')->value('id');
             });
 
             if ($subjectId) {
-                if(request()->sub_grade_id)
-                {
-                    if(request()->sub_grade_id != $student->sub_grade_id){
-                        return [];
+                if (request()->sub_grade_id) {
+                    if (request()->sub_grade_id != $student->sub_grade_id) {
+                        return null;
                     }
                 }
                 $createdAt = now();
@@ -75,22 +75,32 @@ class StudentAttendanceLogImport implements ToModel, WithHeadingRow
                     }
                 }
 
-                AttendanceLog::insert([
+                return new AttendanceLog([
                     'year' => request()->year,
                     'student_id' => $student->id,
                     'month_id' => request()->month_id,
                     'subject_id' => $subjectId,
                     'sub_grade_id' => $student->sub_grade_id,
                     'status' => $row['status'],
-                    'first_term' => request()->term == 1 ? true : false,
+                    'first_term' => request()->term == 1,
                     'user_id' => auth()->id(),
                     'date' => $createdAt,
-                    'created_at' => now(),
-                    'updated_at' => now(),
                 ]);
             } else {
                 info("Subject id is not found for $email, $subject");
             }
         }
+
+        return null;
+    }
+
+    public function batchSize(): int
+    {
+        return 500;
+    }
+
+    public function chunkSize(): int
+    {
+        return 500;
     }
 }

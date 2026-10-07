@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserTypeEnum;
 use App\Http\Requests\Student\CreateMultipleStudentsRequest;
 use App\Http\Requests\Student\CreateStudentRequest;
 use App\Http\Requests\Student\UpdateStudentInfoRequest;
@@ -103,7 +104,12 @@ class StudentController extends Controller
         $grades = SubGrade::whereIsActive(true)->get();
         $countries = Country::whereIsActive(true)->get();
 
-        return inertia('Student/Edit', ['student' => $student, 'countries' => $countries, 'grades' => $grades]);
+        return inertia('Student/Edit', [
+            'student' => $student,
+            'countries' => $countries,
+            'grades' => $grades,
+            'canManageSupportType' => $this->canManageSupportType(),
+        ]);
     }
 
     public function upload($request)
@@ -118,6 +124,10 @@ class StudentController extends Controller
 
     public function update(CreateStudentRequest $request, Student $student)
     {
+        if ($request->has('support_type') && $request->support_type !== $student->support_type) {
+            abort_unless($this->canManageSupportType(), 403);
+        }
+
         if ($student->sub_grade_id != $request->grade_id) {
             $currentClass = $student->subGrade->grade;
             $newClass = SubGrade::find($request->grade_id)->grade;
@@ -139,7 +149,7 @@ class StudentController extends Controller
             $student->save();
         }
 
-        $student->update([
+        $studentData = [
             'name' => $request->name,
             'last_name' => $request->last_name,
             'father_name' => $request->father_name,
@@ -161,7 +171,13 @@ class StudentController extends Controller
             'school' => $request->school,
             'password' => $request->password,
             'is_active' => $request->is_active == 1 ? true : false,
-        ]);
+        ];
+
+        if ($this->canManageSupportType()) {
+            $studentData['support_type'] = $request->support_type;
+        }
+
+        $student->update($studentData);
 
         // Upload student photo
         if ($request->hasFile('photo')) {
@@ -170,6 +186,15 @@ class StudentController extends Controller
         }
 
         return redirect('students');
+    }
+
+    private function canManageSupportType(): bool
+    {
+        return in_array(
+            (int) auth()->user()?->user_type_id,
+            [UserTypeEnum::SuperAdmin->value, UserTypeEnum::User->value],
+            true,
+        );
     }
 
     public function createMultipleStudents()

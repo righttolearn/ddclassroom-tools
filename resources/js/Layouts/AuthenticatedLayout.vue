@@ -127,6 +127,12 @@ const navigation = computed(() => [
                 href: "/student-attendance-log",
                 icon: CalendarIcon,
             },
+            // Monthly Attendance
+            {
+                name: "Monthly Attendance",
+                href: "/monthly-attendance-logs",
+                icon: DocumentChartBarIcon,
+            },
             {
                 name: "Attendance Shoqa",
                 href: "/create-student-shoqa-score",
@@ -750,6 +756,22 @@ const sidebarOpen = ref(false);
 
             <main class="py-4 sm:py-6">
                 <div class="px-4 sm:px-6">
+                    <div
+                        v-if="page.props.flash?.success"
+                        class="mb-4 rounded-md border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-800"
+                        role="status"
+                    >
+                        {{ page.props.flash.success }}
+                    </div>
+
+                    <div
+                        v-if="page.props.flash?.error"
+                        class="mb-4 rounded-md border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-800"
+                        role="alert"
+                    >
+                        {{ page.props.flash.error }}
+                    </div>
+
                     <slot />
                 </div>
             </main>

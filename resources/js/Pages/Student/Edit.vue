@@ -180,6 +180,25 @@
                                             </p>
                                         </div>
                                     </div>
+
+                                    <!-- Support Type -->
+                                    <div v-if="canManageSupportType" class="sm:col-span-3">
+                                        <label for="support_type"
+                                            class="block text-sm font-medium leading-6 text-gray-900">
+                                            Support Type
+                                        </label>
+                                        <div class="mt-2">
+                                            <select id="support_type" v-model="form.support_type" name="support_type"
+                                                class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                                                <option value="">Not Set</option>
+                                                <option value="credit_card">Credit Card</option>
+                                                <option value="cash">Cash</option>
+                                            </select>
+                                            <p class="mt-2 text-sm text-red-500" v-if="errors.support_type">
+                                                {{ errors.support_type }}
+                                            </p>
+                                        </div>
+                                    </div>
                                     <!-- Father Phone -->
                                     <div class="sm:col-span-3">
                                         <label for="father_phone" class="block text-sm font-medium leading-6 text-gray-900">
@@ -406,7 +425,9 @@
         router
     } from '@inertiajs/vue3';
 
-    const props = defineProps(['student', 'countries', 'grades', 'errors']);
+    const props = defineProps(['student', 'countries', 'grades', 'errors', 'canManageSupportType']);
+
+    const canManageSupportType = props.canManageSupportType;
 
     const form = reactive({
         id: props.student.id,
@@ -417,6 +438,7 @@
         father_name: props.student.father_name,
         fa_father_name: props.student.fa_father_name,
         phone: props.student.phone,
+        support_type: props.student.support_type || '',
         father_phone: props.student.father_phone,
         father_email: props.student.father_email,
         province: props.student.province,

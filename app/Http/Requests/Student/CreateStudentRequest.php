@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Student;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class CreateStudentRequest extends FormRequest
 {
@@ -28,6 +29,7 @@ class CreateStudentRequest extends FormRequest
             'grade_id' => 'required',
             'username' => 'required',
             'email' => 'required',
+            'support_type' => ['nullable', Rule::in(['credit_card', 'cash'])],
         ];
     }
 }

@@ -139,6 +139,14 @@ class AttendanceLogController extends Controller
     public function storeMultipleStudentsAttendanceLog(CreateMultipleAttendanceLogRequest $request)
     {
         Excel::import(new StudentAttendanceLogImport, $request->file);
+
+        return redirect()
+            ->route('monthly-attendance-logs.create', [
+                'year' => $request->year,
+                'month_id' => $request->month_id,
+                'sub_grade_id' => $request->sub_grade_id,
+            ])
+            ->with('success', 'Attendance logs imported successfully. Review the results before generating the report.');
     }
 
     public function generalAttendanceScore(Request $request)

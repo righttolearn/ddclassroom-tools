@@ -214,10 +214,9 @@
     function submit() {
         router.post(route(`student-attendance-log.store-multiple-student-attendance`), form, {
             forceFormData: true,
-            onFinish: (res) => {
-
-                Swal.fire(`Created`,
-                    `Students have been successfully created.`)
+            onSuccess: () => {
+                Swal.fire(`Imported`,
+                    `Attendance was imported and the monthly summary was generated.`)
             },
         })
     }
