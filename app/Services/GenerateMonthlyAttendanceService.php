@@ -9,8 +9,13 @@ use Illuminate\Support\Facades\Cache;
 
 class GenerateMonthlyAttendanceService
 {
-    public function getResults(int $year, int $monthId, ?int $subGradeId = null): Collection
-    {
+    public function getResults(
+        int $year,
+        int $monthId,
+        ?int $subGradeId = null,
+        ?int $countryId = null,
+        ?int $gradeId = null,
+    ): Collection {
         $query = AttendanceLog::query()
             ->join('students', 'students.id', '=', 'attendance_logs.student_id')
             ->join('sub_grades', 'sub_grades.id', '=', 'attendance_logs.sub_grade_id')
@@ -33,6 +38,14 @@ class GenerateMonthlyAttendanceService
 
         if ($subGradeId) {
             $query->where('attendance_logs.sub_grade_id', $subGradeId);
+        }
+
+        if ($countryId) {
+            $query->where('students.country_id', $countryId);
+        }
+
+        if ($gradeId) {
+            $query->where('sub_grades.grade_id', $gradeId);
         }
 
         $attendanceLogs = $query
@@ -78,17 +91,36 @@ class GenerateMonthlyAttendanceService
         });
     }
 
-    public function generate(int $year, int $monthId, int $userId, ?int $subGradeId = null): int
-    {
+    public function generate(
+        int $year,
+        int $monthId,
+        int $userId,
+        ?int $subGradeId = null,
+        ?int $countryId = null,
+        ?int $gradeId = null,
+    ): int {
         return Cache::lock("monthly-attendance-generation:{$year}:{$monthId}", 300)
-            ->block(15, function () use ($year, $monthId, $userId, $subGradeId) {
-                return $this->generateWhileLocked($year, $monthId, $userId, $subGradeId);
+            ->block(15, function () use ($year, $monthId, $userId, $subGradeId, $countryId, $gradeId) {
+                return $this->generateWhileLocked(
+                    $year,
+                    $monthId,
+                    $userId,
+                    $subGradeId,
+                    $countryId,
+                    $gradeId,
+                );
             });
     }
 
-    private function generateWhileLocked(int $year, int $monthId, int $userId, ?int $subGradeId): int
-    {
-        $results = $this->getResults($year, $monthId, $subGradeId);
+    private function generateWhileLocked(
+        int $year,
+        int $monthId,
+        int $userId,
+        ?int $subGradeId,
+        ?int $countryId,
+        ?int $gradeId,
+    ): int {
+        $results = $this->getResults($year, $monthId, $subGradeId, $countryId, $gradeId);
 
         if ($results->isEmpty()) {
             return 0;

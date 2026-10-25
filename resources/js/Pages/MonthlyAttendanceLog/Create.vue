@@ -21,7 +21,7 @@
         </div>
 
         <div class="rounded-lg bg-white p-4 shadow">
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
                 <div>
                     <label class="mb-1 block text-sm font-medium text-gray-700">Year</label>
                     <select v-model="form.year" :class="inputClass">
@@ -43,10 +43,30 @@
                 </div>
 
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-gray-700">Grade / Class</label>
-                    <select v-model="form.sub_grade_id" :class="inputClass">
+                    <label class="mb-1 block text-sm font-medium text-gray-700">Country</label>
+                    <select v-model="form.country_id" :class="inputClass">
+                        <option value="">All Countries</option>
+                        <option v-for="country in countries" :key="country.id" :value="country.id">
+                            {{ country.name }}
+                        </option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">Grade</label>
+                    <select v-model="form.grade_id" @change="handleGradeChange" :class="inputClass">
                         <option value="">All Grades</option>
-                        <option v-for="subGrade in subGrades" :key="subGrade.id" :value="subGrade.id">
+                        <option v-for="grade in grades" :key="grade.id" :value="grade.id">
+                            {{ grade.name }}
+                        </option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">Class</label>
+                    <select v-model="form.sub_grade_id" :class="inputClass">
+                        <option value="">All Classes</option>
+                        <option v-for="subGrade in filteredSubGrades" :key="subGrade.id" :value="subGrade.id">
                             {{ subGrade.full_name }}
                         </option>
                     </select>
@@ -134,6 +154,8 @@ import Swal from "sweetalert2";
 
 const props = defineProps({
     results: Array,
+    countries: Array,
+    grades: Array,
     subGrades: Array,
     months: Array,
     years: Array,
@@ -144,6 +166,8 @@ const props = defineProps({
 const form = reactive({
     year: props.filters?.year || "",
     month_id: props.filters?.month_id || "",
+    country_id: props.filters?.country_id || "",
+    grade_id: props.filters?.grade_id || "",
     sub_grade_id: props.filters?.sub_grade_id || "",
 });
 
@@ -153,9 +177,21 @@ const inputClass = "block w-full rounded-md border-gray-300 text-sm focus:border
 const headerClass = "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider";
 const cellClass = "px-6 py-4 whitespace-nowrap text-sm text-gray-700";
 
+const filteredSubGrades = computed(() => {
+    if (!form.grade_id) {
+        return props.subGrades;
+    }
+
+    return props.subGrades.filter(
+        (subGrade) => String(subGrade.grade_id) === String(form.grade_id),
+    );
+});
+
 const previewIsCurrent = computed(() => {
     return String(form.year) === String(props.filters?.year || "")
         && String(form.month_id) === String(props.filters?.month_id || "")
+        && String(form.country_id || "") === String(props.filters?.country_id || "")
+        && String(form.grade_id || "") === String(props.filters?.grade_id || "")
         && String(form.sub_grade_id || "") === String(props.filters?.sub_grade_id || "");
 });
 
@@ -176,6 +212,16 @@ function validateSelection() {
     return false;
 }
 
+function handleGradeChange() {
+    const selectedClassIsInGrade = filteredSubGrades.value.some(
+        (subGrade) => String(subGrade.id) === String(form.sub_grade_id),
+    );
+
+    if (!selectedClassIsInGrade) {
+        form.sub_grade_id = "";
+    }
+}
+
 function previewResults() {
     if (!validateSelection()) {
         return;
@@ -184,6 +230,8 @@ function previewResults() {
     router.get("/monthly-attendance-logs/generate", {
         year: form.year,
         month_id: form.month_id,
+        country_id: form.country_id || null,
+        grade_id: form.grade_id || null,
         sub_grade_id: form.sub_grade_id || null,
     }, {
         preserveState: true,
@@ -213,6 +261,8 @@ function generateReport() {
             {
                 year: form.year,
                 month_id: form.month_id,
+                country_id: form.country_id || null,
+                grade_id: form.grade_id || null,
                 sub_grade_id: form.sub_grade_id || null,
             },
             {

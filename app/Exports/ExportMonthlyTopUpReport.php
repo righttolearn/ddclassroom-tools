@@ -52,12 +52,20 @@ class ExportMonthlyTopUpReport extends DefaultValueBinder implements FromQuery, 
             $query->where('monthly_attendance_logs.sub_grade_id', $this->filters['sub_grade_id']);
         }
 
+        if ($this->filters['country_id']) {
+            $query->where('students.country_id', $this->filters['country_id']);
+        }
+
+        if ($this->filters['grade_id']) {
+            $query->where('sub_grades.grade_id', $this->filters['grade_id']);
+        }
+
         if ($this->filters['support_type']) {
             $query->where('monthly_attendance_logs.support_type', $this->filters['support_type']);
         }
 
         if ($this->filters['absence_percentage'] !== null) {
-            $query->where('monthly_attendance_logs.absence_percentage', '<', $this->filters['absence_percentage']);
+            $query->where('monthly_attendance_logs.absence_percentage', '>', $this->filters['absence_percentage']);
         }
 
         return $query->orderBy('sub_grades.full_name')

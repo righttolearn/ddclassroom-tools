@@ -51,7 +51,7 @@
             </div>
 
             <!-- Filters -->
-            <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-5">
+            <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8">
                 <!-- Year -->
                 <div>
                     <label class="mb-1 block text-sm font-medium text-gray-700">
@@ -95,20 +95,62 @@
                     </select>
                 </div>
 
+                <!-- Country -->
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">
+                        Country
+                    </label>
+                    <select
+                        v-model="localFilters.country_id"
+                        @change="getData"
+                        class="block w-full rounded-md border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    >
+                        <option value="">All Countries</option>
+                        <option
+                            v-for="country in countries"
+                            :key="country.id"
+                            :value="country.id"
+                        >
+                            {{ country.name }}
+                        </option>
+                    </select>
+                </div>
+
                 <!-- Grade -->
                 <div>
                     <label class="mb-1 block text-sm font-medium text-gray-700">
-                        Grade / Class
+                        Grade
+                    </label>
+                    <select
+                        v-model="localFilters.grade_id"
+                        @change="handleGradeChange"
+                        class="block w-full rounded-md border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    >
+                        <option value="">All Grades</option>
+                        <option
+                            v-for="grade in grades"
+                            :key="grade.id"
+                            :value="grade.id"
+                        >
+                            {{ grade.name }}
+                        </option>
+                    </select>
+                </div>
+
+                <!-- Class -->
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">
+                        Class
                     </label>
                     <select
                         v-model="localFilters.sub_grade_id"
                         @change="getData"
                         class="block w-full rounded-md border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500"
                     >
-                        <option value="">All Grades</option>
+                        <option value="">All Classes</option>
 
                         <option
-                            v-for="subGrade in subGrades"
+                            v-for="subGrade in filteredSubGrades"
                             :key="subGrade.id"
                             :value="subGrade.id"
                         >
@@ -148,6 +190,26 @@
                         <option value="cash">Cash</option>
                     </select>
                 </div>
+
+                <!-- Records Per Page -->
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">
+                        Records per page
+                    </label>
+                    <select
+                        v-model="localFilters.per_page"
+                        @change="getData"
+                        class="block w-full rounded-md border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    >
+                        <option
+                            v-for="option in perPageOptions"
+                            :key="option"
+                            :value="option"
+                        >
+                            {{ option }}
+                        </option>
+                    </select>
+                </div>
             </div>
 
             <div class="mt-3">
@@ -163,10 +225,13 @@
 
         <!-- Table -->
         <div class="min-w-full overflow-hidden rounded-lg shadow">
-            <div class="border-b border-gray-200 bg-white px-6 py-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-white px-6 py-4">
                 <h3 class="font-semibold text-gray-900">
                     Monthly Attendance Report — {{ reportPeriod }}
                 </h3>
+                <span class="text-sm font-medium text-gray-500">
+                    Total Records: {{ monthlyAttendanceLogs.total }}
+                </span>
             </div>
 
             <div class="overflow-x-auto">
@@ -182,6 +247,7 @@
                                 class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                             />
                         </th>
+                        <th :class="headerClass">No.</th>
                         <th :class="headerClass">Name</th>
                         <th :class="headerClass">Father's Name</th>
                         <th :class="headerClass">Phone Number</th>
@@ -193,7 +259,7 @@
 
                 <tbody class="divide-y divide-gray-200 bg-white">
                     <tr
-                        v-for="item in monthlyAttendanceLogs.data"
+                        v-for="(item, index) in monthlyAttendanceLogs.data"
                         :key="item.id"
                     >
                         <td class="px-4 py-4">
@@ -205,6 +271,11 @@
                                 class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                             />
                             <span v-else class="text-gray-300"> — </span>
+                        </td>
+
+                        <!-- Iteration -->
+                        <td :class="cellClass">
+                            {{ (monthlyAttendanceLogs.from || 1) + index }}
                         </td>
 
                         <!-- Name -->
@@ -294,6 +365,8 @@ import Swal from "sweetalert2";
 
 const props = defineProps({
     monthlyAttendanceLogs: Object,
+    countries: Array,
+    grades: Array,
     subGrades: Array,
     months: Array,
     years: Array,
@@ -301,19 +374,33 @@ const props = defineProps({
 });
 
 const selectedIds = ref([]);
+const perPageOptions = [10, 20, 50, 100, 500];
 
 const localFilters = reactive({
     year: props.filters?.year || "",
     month_id: props.filters?.month_id || "",
+    country_id: props.filters?.country_id || "",
+    grade_id: props.filters?.grade_id || "",
     sub_grade_id: props.filters?.sub_grade_id || "",
     absence_percentage: props.filters?.absence_percentage ?? 30,
     support_type: props.filters?.support_type || "",
+    per_page: props.filters?.per_page || 50,
 });
 
 const headerClass =
     "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider";
 
 const cellClass = "px-6 py-4 whitespace-nowrap text-sm text-gray-700";
+
+const filteredSubGrades = computed(() => {
+    if (!localFilters.grade_id) {
+        return props.subGrades;
+    }
+
+    return props.subGrades.filter(
+        (subGrade) => String(subGrade.grade_id) === String(localFilters.grade_id),
+    );
+});
 
 const reportPeriod = computed(() => {
     const month = props.months.find(
@@ -333,12 +420,27 @@ function getData() {
     });
 }
 
+function handleGradeChange() {
+    const selectedClassIsInGrade = filteredSubGrades.value.some(
+        (subGrade) => String(subGrade.id) === String(localFilters.sub_grade_id),
+    );
+
+    if (!selectedClassIsInGrade) {
+        localFilters.sub_grade_id = "";
+    }
+
+    getData();
+}
+
 function resetFilters() {
     localFilters.year = "";
     localFilters.month_id = "";
+    localFilters.country_id = "";
+    localFilters.grade_id = "";
     localFilters.sub_grade_id = "";
     localFilters.absence_percentage = "";
     localFilters.support_type = "";
+    localFilters.per_page = 50;
 
     getData();
 }
@@ -368,6 +470,10 @@ const exportUrl = computed(() => {
     const params = new URLSearchParams();
 
     Object.entries(localFilters).forEach(([key, value]) => {
+        if (key === "per_page") {
+            return;
+        }
+
         if (value !== "" && value !== null && value !== undefined) {
             params.set(key, value);
         }

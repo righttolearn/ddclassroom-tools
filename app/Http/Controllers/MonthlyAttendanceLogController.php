@@ -6,6 +6,8 @@ use App\Exports\ExportMonthlyTopUpReport;
 use App\Jobs\SendHomeroomTeacherMonthlyAttendanceEmail;
 use App\Jobs\SendMonthlyAttendanceEmail;
 use App\Models\ClassResponsible;
+use App\Models\Country;
+use App\Models\Grade;
 use App\Models\Month;
 use App\Models\MonthlyAttendanceLog;
 use App\Models\SubGrade;
@@ -20,6 +22,12 @@ class MonthlyAttendanceLogController extends Controller
 {
     public function index(Request $request)
     {
+        $allowedPerPage = [10, 20, 50, 100, 500];
+        $requestedPerPage = (int) $request->input('per_page', 50);
+        $perPage = in_array($requestedPerPage, $allowedPerPage, true)
+            ? $requestedPerPage
+            : 50;
+
         $absencePercentage = $request->has('absence_percentage')
             ? ($request->filled('absence_percentage') ? $request->absence_percentage : null)
             : 30;
@@ -52,6 +60,18 @@ class MonthlyAttendanceLogController extends Controller
             $query->where('sub_grade_id', $request->sub_grade_id);
         }
 
+        if ($request->country_id) {
+            $query->whereHas('student', function ($studentQuery) use ($request) {
+                $studentQuery->where('country_id', $request->country_id);
+            });
+        }
+
+        if ($request->grade_id) {
+            $query->whereHas('subGrade', function ($subGradeQuery) use ($request) {
+                $subGradeQuery->where('grade_id', $request->grade_id);
+            });
+        }
+
         if ($request->support_type) {
             $query->where('support_type', $request->support_type);
         }
@@ -64,24 +84,31 @@ class MonthlyAttendanceLogController extends Controller
             ->orderByDesc('year')
             ->orderByDesc('month_id')
             ->orderByDesc('absence_percentage')
-            ->paginate(500)
+            ->paginate($perPage)
             ->appends($request->query());
 
-        $subGrades = SubGrade::whereIsActive(true)->orderBy('full_name')->get(['id', 'name', 'full_name']);
+        $countries = Country::whereIsActive(true)->orderBy('name')->get(['id', 'name']);
+        $grades = Grade::whereIsActive(true)->orderBy('number')->get(['id', 'name']);
+        $subGrades = SubGrade::whereIsActive(true)->orderBy('full_name')->get(['id', 'name', 'full_name', 'grade_id']);
         $months = Month::all(['id', 'name']);
         $years = Year::all(['id', 'name']);
 
         return inertia('MonthlyAttendanceLog/Index', [
             'monthlyAttendanceLogs' => $monthlyAttendanceLogs,
+            'countries' => $countries,
+            'grades' => $grades,
             'subGrades' => $subGrades,
             'months' => $months,
             'years' => $years,
             'filters' => [
                 'year' => $request->year,
                 'month_id' => $request->month_id,
+                'country_id' => $request->country_id,
+                'grade_id' => $request->grade_id,
                 'sub_grade_id' => $request->sub_grade_id,
                 'absence_percentage' => $absencePercentage,
                 'support_type' => $request->support_type,
+                'per_page' => $perPage,
             ],
         ]);
     }
@@ -96,6 +123,8 @@ class MonthlyAttendanceLogController extends Controller
             'year' => $request->year,
             'month_id' => $request->month_id,
             'month_name' => $monthName,
+            'country_id' => $request->country_id,
+            'grade_id' => $request->grade_id,
             'sub_grade_id' => $request->sub_grade_id,
             'absence_percentage' => $request->has('absence_percentage')
                 ? ($request->filled('absence_percentage') ? $request->absence_percentage : null)
@@ -120,21 +149,29 @@ class MonthlyAttendanceLogController extends Controller
                 (int) $request->year,
                 (int) $request->month_id,
                 $request->sub_grade_id ? (int) $request->sub_grade_id : null,
+                $request->country_id ? (int) $request->country_id : null,
+                $request->grade_id ? (int) $request->grade_id : null,
             );
         }
 
-        $subGrades = SubGrade::whereIsActive(true)->orderBy('full_name')->get(['id', 'name', 'full_name']);
+        $countries = Country::whereIsActive(true)->orderBy('name')->get(['id', 'name']);
+        $grades = Grade::whereIsActive(true)->orderBy('number')->get(['id', 'name']);
+        $subGrades = SubGrade::whereIsActive(true)->orderBy('full_name')->get(['id', 'name', 'full_name', 'grade_id']);
         $months = Month::all(['id', 'name']);
         $years = Year::all(['id', 'name']);
 
         return inertia('MonthlyAttendanceLog/Create', [
             'results' => $results,
+            'countries' => $countries,
+            'grades' => $grades,
             'subGrades' => $subGrades,
             'months' => $months,
             'years' => $years,
             'filters' => [
                 'year' => $request->year,
                 'month_id' => $request->month_id,
+                'country_id' => $request->country_id,
+                'grade_id' => $request->grade_id,
                 'sub_grade_id' => $request->sub_grade_id,
             ],
             'hasPreview' => (bool) ($request->year && $request->month_id),
@@ -146,6 +183,8 @@ class MonthlyAttendanceLogController extends Controller
         $validated = $request->validate([
             'year' => ['required', 'integer', 'exists:years,name'],
             'month_id' => ['required', 'integer', 'exists:months,id'],
+            'country_id' => ['nullable', 'integer', 'exists:countries,id'],
+            'grade_id' => ['nullable', 'integer', 'exists:grades,id'],
             'sub_grade_id' => ['nullable', 'integer', 'exists:sub_grades,id'],
         ]);
 
@@ -155,6 +194,8 @@ class MonthlyAttendanceLogController extends Controller
                 monthId: (int) $validated['month_id'],
                 userId: auth()->id(),
                 subGradeId: isset($validated['sub_grade_id']) ? (int) $validated['sub_grade_id'] : null,
+                countryId: isset($validated['country_id']) ? (int) $validated['country_id'] : null,
+                gradeId: isset($validated['grade_id']) ? (int) $validated['grade_id'] : null,
             );
         } catch (LockTimeoutException) {
             return redirect()->back()->with(
@@ -176,6 +217,8 @@ class MonthlyAttendanceLogController extends Controller
             ->route('monthly-attendance-logs.index', [
                 'year' => $validated['year'],
                 'month_id' => $validated['month_id'],
+                'country_id' => $validated['country_id'] ?? null,
+                'grade_id' => $validated['grade_id'] ?? null,
                 'sub_grade_id' => $validated['sub_grade_id'] ?? null,
                 'absence_percentage' => 30,
             ])
